@@ -75,8 +75,9 @@ function AppContent() {
 
           <WebView
             key={reloadKey}
-            source={{ uri: SVELTE_URL }}
+            source={{ uri: `${SVELTE_URL}?reload=${reloadKey}` }}
             javaScriptEnabled
+            domStorageEnabled
             cacheEnabled
             cacheMode="LOAD_CACHE_ELSE_NETWORK"
             startInLoadingState
