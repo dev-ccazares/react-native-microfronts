@@ -13,7 +13,7 @@ import {
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 
-const SVELTE_URL = 'https://68ssdj04-5173.use2.devtunnels.ms/';
+const SVELTE_URL = 'https://68ssdj04-4173.use2.devtunnels.ms';
 // luego aquí pondrás tu host de repack
 const REPACK_URL = 'https://tu-repack-host.com';
 
@@ -31,6 +31,7 @@ function App() {
 function AppContent() {
   const safeAreaInsets = useSafeAreaInsets();
   const [screen, setScreen] = useState<'home' | 'svelte' | 'repack'>('home');
+  const [reloadKey, setReloadKey] = useState(0);
 
   return (
     <View
@@ -71,12 +72,19 @@ function AppContent() {
             <Text style={styles.backText}>← Volver</Text>
           </TouchableOpacity>
 
+
           <WebView
+            key={reloadKey}
             source={{ uri: SVELTE_URL }}
-            style={{ flex: 1 }}
             javaScriptEnabled
-            domStorageEnabled
+            cacheEnabled
+            cacheMode="LOAD_CACHE_ELSE_NETWORK"
+            startInLoadingState
           />
+
+          <TouchableOpacity onPress={() => setReloadKey(prev => prev + 1)}>
+            <Text>🔄 Recargar</Text>
+          </TouchableOpacity>
         </View>
       )}
 
