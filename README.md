@@ -1,97 +1,158 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# react-native-microfronts (HOST)
 
-# Getting Started
+Shell React Native con **2 estrategias** de microfrontends mobile:
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+1. **Svelte microfront** → app web cargada en `WebView` (embebido)
+2. **Repack microfront** → APK RN independiente, abierto vía deep link
 
-## Step 1: Start Metro
+Forma parte del POC de microfrontends junto con:
+- [`svelte-microfront`](https://github.com/dev-ccazares/svelte-microfront) — microfront Svelte
+- [`repack-microfront`](https://github.com/dev-ccazares/repack-microfront) — microfront RN con Repack
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Arquitectura
 
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```
+┌─ react-native-microfronts (HOST) ───────────────┐
+│                                                 │
+│   [ Abrir Svelte ]  ── WebView(URL) ──→  svelte-microfront
+│                                            (app web servida en :4173)
+│                                                 │
+│   [ Abrir Repack ]  ── Linking deep link ──→  com.repackmicrofront
+│                                            (otra app RN instalada en el device)
+│                                                 │
+└─────────────────────────────────────────────────┘
 ```
 
-## Step 2: Build and run your app
+## Stack
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+- **React Native 0.80.3** + **React 19.1**
+- **Metro** (bundler default)
+- `react-native-webview` para embeber el Svelte
+- `Linking` para abrir el Repack como app separada
 
-### Android
+## Cómo levantarlo (paso a paso)
 
-```sh
-# Using npm
-npm run android
+### Pre-requisitos
+- Node 18+
+- Android Studio + emulador (o device físico)
+- `adb` en PATH
+- **Java 17**
 
-# OR using Yarn
-yarn android
+### Paso 0: clonar los 3 repos (una sola vez)
+
+```bash
+cd ~/Documents/Project/Repos          # o donde prefieras
+git clone https://github.com/dev-ccazares/react-native-microfronts.git
+git clone https://github.com/dev-ccazares/svelte-microfront.git
+git clone https://github.com/dev-ccazares/repack-microfront.git
 ```
 
-### iOS
+### Paso 1 — Levantar el Svelte microfront (Terminal 1)
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
+```bash
+cd svelte-microfront
+npm install
+npm run build
+npm run preview -- --host 0.0.0.0 --port 4173
 ```
 
-Then, and every time you update your native dependencies, run:
+Deja la terminal corriendo. Verás `Local: http://localhost:4173/`.
 
-```sh
-bundle exec pod install
+### Paso 2 — Compilar e instalar el repack-microfront en el device (Terminal 2)
+
+Sólo una vez (o cuando cambies código del microfront):
+
+```bash
+cd repack-microfront
+npm install --legacy-peer-deps    # necesita .npmrc privado de Deuna
+cd android
+./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+Esto deja el APK `com.repackmicrofront` instalado en el emulador, listo para ser abierto por el deep link.
 
-```sh
-# Using npm
-npm run ios
+> Más detalles en [`repack-microfront/README.md`](https://github.com/dev-ccazares/repack-microfront/blob/main/README.md).
 
-# OR using Yarn
-yarn ios
+### Paso 3 — Arrancar el host (Terminal 3)
+
+```bash
+cd react-native-microfronts
+npm install --legacy-peer-deps
+npm start                          # Metro en :8081
 ```
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Deja Metro corriendo.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+### Paso 4 — Instalar el APK del host (Terminal 4)
 
-## Step 3: Modify your app
+```bash
+cd react-native-microfronts
+npm run android                    # build + install + launch
+```
 
-Now that you have successfully run the app, let's make changes!
+Si todo va bien, se abre la app **"Microfronts POC"** automáticamente.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Si el emulador no detecta Metro (pantalla roja)
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+```bash
+adb reverse tcp:8081 tcp:8081      # host Metro
+adb reverse tcp:4173 tcp:4173      # Svelte preview
+```
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+Reload la app (`Cmd+M` → Reload).
 
-## Congratulations! :tada:
+## Uso
 
-You've successfully run and modified your React Native App. :partying_face:
+1. Tap **"Abrir Svelte (WebView)"** → carga el WebView con el flujo de pagos en Svelte.
+2. Tap **"Abrir Repack"** → muestra un Alert con instrucciones y un botón "Abrir".
 
-### Now what?
+### Workflow del botón Repack
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+Como host y repack-microfront son ambas apps RN debug, **ambas pelean por el puerto 8081**. Para que el repack-microfront cargue su JS:
 
-# Troubleshooting
+1. Tap "Abrir Repack" en el host → aparece el Alert
+2. **Mata el Metro del host** (`Ctrl+C` en Terminal 3)
+3. **Arranca el Metro del repack-microfront** en su lugar:
+   ```bash
+   cd repack-microfront
+   npm start                       # también en :8081
+   ```
+4. Tap "Abrir" en el Alert → se lanza la app del microfront, conecta a SU Metro, y carga su bundle correctamente
+5. Cuando termines de probarlo, matá el Metro del repack-microfront y volvé a arrancar el del host si querés ver el botón Svelte
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+> **Sí, es engorroso** — refleja que cada microfront RN debug es una app separada con sus propias deps de dev. En producción cada APK tendría su JS embebido y este conflicto no existe.
 
-# Learn More
+## Repos relacionados
 
-To learn more about React Native, take a look at the following resources:
+| Repo | Tech | Cómo lo carga el host |
+|------|------|----------------------|
+| **`react-native-microfronts`** (este) | RN 0.80.3 + Metro | — |
+| `svelte-microfront` | Svelte 5 + Vite | `<WebView source={{ uri }} />` |
+| `repack-microfront` | RN 0.80.3 + Repack + libs Deuna | `Linking.openURL('repackmicrofront://launch')` |
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+## ¿Por qué deep link en vez de cargar el Repack en un WebView?
+
+Un bundle de Repack es código React Native, no HTML. **No puede ejecutarse adentro de un WebView**. Las 2 opciones reales en mobile son:
+
+- **Deep link** (este enfoque) — cada microfront es su propio APK. Patrón "super-app" (WeChat, Rappi).
+- **Module Federation 2** — el host descarga el bundle remoto del microfront y lo monta en su runtime. Más cercano al concepto web de microfrontend pero requiere configurar Repack en el host también y manejar singletons de React/RN. Lo intentamos en `repack-microfront` y vimos issues con Hermes — viable a futuro pero no en este PoC.
+
+## Cambios respecto al scaffolding original RN
+
+- Versión RN bajada de **0.85.2 → 0.80.3** para alinearse con `repack-microfront` y poder compartir las libs Deuna en su ecosistema 0.80
+- `AndroidManifest.xml` (main): removido `${usesCleartextTraffic}` placeholder + agregado `<queries>` para Android 11+ (declarar qué schemes externos abre)
+- `AndroidManifest.xml` (debug): agregado con `usesCleartextTraffic="true"` (necesario para conectar a Metro en HTTP)
+- `MainApplication.kt`: refactor a la API de RN 0.80 (con `ReactNativeHost`)
+- `gradle-wrapper.properties`: Gradle 9.3.1 → 8.14.1
+- `android/build.gradle`: buildToolsVersion 36 → 35
+- `App.tsx`: botón Repack usa `Linking.openURL` con Alert de aviso
+
+## Troubleshooting
+
+| Error | Causa | Fix |
+|---|---|---|
+| Pantalla roja "Unable to load script" | Metro no corriendo, o el device no llega a él | `adb reverse tcp:8081 tcp:8081`, verificar `npm start` arriba, reload |
+| `CLEARTEXT communication not permitted` | Falta debug manifest | Verificar `android/app/src/debug/AndroidManifest.xml` |
+| Alert "No está instalado" al tocar Abrir Repack | El APK del repack-microfront no está instalado | Ver Paso 2 |
+| WebView del Svelte en blanco | `SVELTE_URL` apunta al host equivocado | Confirmar que vite preview corre y que la URL es `10.0.2.2:4173` (emulador) o IP de la Mac (device físico) |
